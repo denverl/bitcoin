@@ -1,241 +1,90 @@
-UNIX BUILD NOTES
-====================
-Some notes on how to build Bitcoin in Unix. 
+# UNIX BUILD NOTES
 
-Note
----------------------
-Always use absolute paths to configure and compile bitcoin and the dependencies,
-for example, when specifying the the path of the dependency:
+Some notes on how to build Bitcoin Core in Unix.
 
-	../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
+(For BSD specific instructions, see `build-*bsd.md` in this directory.)
 
-Here BDB_PREFIX must absolute path - it is defined using $(pwd) which ensures
-the usage of the absolute path.
-
-To Build
----------------------
+## To Build
 
 ```bash
-./autogen.sh
-./configure
-make
-make install # optional
+cmake -B build
 ```
-
-This will build bitcoin-qt as well if the dependencies are met.
-
-Dependencies
----------------------
-
-These dependencies are required:
-
- Library     | Purpose          | Description
- ------------|------------------|----------------------
- libssl      | SSL Support      | Secure communications
- libboost    | Boost            | C++ Library
-
-Optional dependencies:
-
- Library     | Purpose          | Description
- ------------|------------------|----------------------
- miniupnpc   | UPnP Support     | Firewall-jumping support
- libdb4.8    | Berkeley DB      | Wallet storage (only needed when wallet enabled)
- qt          | GUI              | GUI toolkit (only needed when GUI enabled)
- protobuf    | Payments in GUI  | Data interchange format used for payment protocol (only needed when GUI enabled)
- libqrencode | QR codes in GUI  | Optional for generating QR codes (only needed when GUI enabled)
-
-For the versions used in the release, see [release-process.md](release-process.md) under *Fetch and build inputs*.
-
-System requirements
---------------------
-
-C++ compilers are memory-hungry. It is recommended to have at least 1 GB of
-memory available when compiling Bitcoin Core. With 512MB of memory or less
-compilation will take much longer due to swap thrashing.
-
-Dependency Build Instructions: Ubuntu & Debian
-----------------------------------------------
-Build requirements:
-
-	sudo apt-get install build-essential libtool autotools-dev autoconf pkg-config libssl-dev
-	
-for Ubuntu 12.04 and later or Debian 7 and later libboost-all-dev has to be installed:
-
-	sudo apt-get install libboost-all-dev
-
- db4.8 packages are available [here](https://launchpad.net/~bitcoin/+archive/bitcoin).
- You can add the repository using the following command:
-
-        sudo add-apt-repository ppa:bitcoin/bitcoin
-        sudo apt-get update
-
- Ubuntu 12.04 and later have packages for libdb5.1-dev and libdb5.1++-dev,
- but using these will break binary wallet compatibility, and is not recommended.
-
-for Debian 7 (Wheezy) and later:
- The oldstable repository contains db4.8 packages.
- Add the following line to /etc/apt/sources.list,
- replacing [mirror] with any official debian mirror.
-
-	deb http://[mirror]/debian/ oldstable main
-
-To enable the change run
-
-	sudo apt-get update
-
-for other Debian & Ubuntu (with ppa):
-
-	sudo apt-get install libdb4.8-dev libdb4.8++-dev
-
-Optional:
-
-	sudo apt-get install libminiupnpc-dev (see --with-miniupnpc and --enable-upnp-default)
-
-Dependencies for the GUI: Ubuntu & Debian
------------------------------------------
-
-If you want to build Bitcoin-Qt, make sure that the required packages for Qt development
-are installed. Either Qt 4 or Qt 5 are necessary to build the GUI.
-If both Qt 4 and Qt 5 are installed, Qt 4 will be used. Pass `--with-gui=qt5` to configure to choose Qt5.
-To build without GUI pass `--without-gui`.
-
-To build with Qt 4 you need the following:
-
-    sudo apt-get install libqt4-dev libprotobuf-dev protobuf-compiler
-
-For Qt 5 you need the following:
-
-    sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools libprotobuf-dev protobuf-compiler
-
-libqrencode (optional) can be installed with:
-
-    sudo apt-get install libqrencode-dev
-
-Once these are installed, they will be found by configure and a bitcoin-qt executable will be
-built by default.
-
-Notes
------
-The release is built with GCC and then "strip bitcoind" to strip the debug
-symbols, which reduces the executable size by about 90%.
-
-
-miniupnpc
----------
-
-[miniupnpc](http://miniupnp.free.fr/) may be used for UPnP port mapping.  It can be downloaded from [here](
-http://miniupnp.tuxfamily.org/files/).  UPnP support is compiled in and
-turned off by default.  See the configure options for upnp behavior desired:
-
-	--without-miniupnpc      No UPnP support miniupnp not required
-	--disable-upnp-default   (the default) UPnP support turned off by default at runtime
-	--enable-upnp-default    UPnP support turned on by default at runtime
-
-To build:
-
-	tar -xzvf miniupnpc-1.6.tar.gz
-	cd miniupnpc-1.6
-	make
-	sudo su
-	make install
-
-
-Berkeley DB
------------
-It is recommended to use Berkeley DB 4.8. If you have to build it yourself:
+Run `cmake -B build -LH` to see the full list of available options.
 
 ```bash
-BITCOIN_ROOT=$(pwd)
-
-# Pick some path to install BDB to, here we create a directory within the bitcoin directory
-BDB_PREFIX="${BITCOIN_ROOT}/db4"
-mkdir -p $BDB_PREFIX
-
-# Fetch the source and verify that it is not tampered with
-wget 'http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz'
-echo '12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef  db-4.8.30.NC.tar.gz' | sha256sum -c
-# -> db-4.8.30.NC.tar.gz: OK
-tar -xzvf db-4.8.30.NC.tar.gz
-
-# Build the library and install to our prefix
-cd db-4.8.30.NC/build_unix/
-#  Note: Do a static build so that it can be embedded into the executable, instead of having to find a .so at runtime
-../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
-make install
-
-# Configure Bitcoin Core to use our own-built instance of BDB
-cd $BITCOIN_ROOT
-./configure (other args...) LDFLAGS="-L${BDB_PREFIX}/lib/" CPPFLAGS="-I${BDB_PREFIX}/include/"
+cmake --build build    # Append "-j N" for N parallel jobs
+cmake --install build  # Optional
 ```
 
-**Note**: You only need Berkeley DB if the wallet is enabled (see the section *Disable-Wallet mode* below).
+See below for instructions on how to [install the dependencies on popular Linux
+distributions](#dependencies).
 
-Boost
------
-If you need to build Boost yourself:
+## Memory Requirements
 
-	sudo su
-	./bootstrap.sh
-	./bjam install
-
-
-Security
---------
-To help make your bitcoin installation more secure by making certain attacks impossible to
-exploit even if a vulnerability is found, binaries are hardened by default.
-This can be disabled with:
-
-Hardening Flags:
-
-	./configure --enable-hardening
-	./configure --disable-hardening
+C++ compilers are memory-hungry. It is recommended to have at least 1.5 GB of
+memory available when compiling Bitcoin Core. On systems with less, gcc can be
+tuned to conserve memory with additional `CMAKE_CXX_FLAGS`:
 
 
-Hardening enables the following features:
+    cmake -B build -DCMAKE_CXX_FLAGS="--param ggc-min-expand=1 --param ggc-min-heapsize=32768"
 
-* Position Independent Executable
-    Build position independent code to take advantage of Address Space Layout Randomization
-    offered by some kernels. An attacker who is able to cause execution of code at an arbitrary
-    memory location is thwarted if he or she doesn't know where anything useful is located.
-    The stack and heap are randomly located by default but this allows the code section to be
-    randomly located as well.
+Alternatively, or in addition, debugging information can be skipped for compilation.
+For the default build type `RelWithDebInfo`, the default compile flags are
+`-O2 -g`, and can be changed with:
 
-    On an Amd64 processor where a library was not compiled with -fPIC, this will cause an error
-    such as: "relocation R_X86_64_32 against `......' can not be used when making a shared object;"
+    cmake -B build -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g0"
 
-    To test that you have built PIE executable, install scanelf, part of paxutils, and use:
+Finally, clang (often less resource hungry) can be used instead of gcc, which is used by default:
 
-    	scanelf -e ./bitcoin
+    cmake -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
 
-    The output should contain:
-     TYPE
-    ET_DYN
+## Dependencies
 
-* Non-executable Stack
-    If the stack is executable then trivial stack based buffer overflow exploits are possible if
-    vulnerable buffers are found. By default, bitcoin should be built with a non-executable stack
-    but if one of the libraries it uses asks for an executable stack or someone makes a mistake
-    and uses a compiler extension which requires an executable stack, it will silently build an
-    executable without the non-executable stack protection.
+You can either build from self-compiled [depends](/depends/README.md) or
+install the dependencies from your distribution package manager. Dependencies
+for additional features in later columns are optional.
 
-    To verify that the stack is non-executable after compiling use:
-    `scanelf -e ./bitcoin`
+| Package manager         | Required build dependencies | SQLite (wallet) | Cap'n Proto (IPC) | ZMQ <sup><a href="#note1">[1]</a></sup> | USDT | Qt and libqrencode (GUI) |
+| ----------------------- | --------------------------- | --------------- | ----------------- | --- | ---- | ------------------------ |
+| Debian / Ubuntu (`apt`) | `build-essential cmake python3 libboost-dev` | `libsqlite3-dev` | `libcapnp-dev capnproto` | `libzmq3-dev pkgconf` | `systemtap-sdt-dev` | `qt6-base-dev qt6-tools-dev qt6-l10n-tools qt6-tools-dev-tools libgl-dev qt6-wayland libqrencode-dev` |
+| Fedora (`dnf`)          | `gcc-c++ cmake make python3 boost-devel` | `sqlite-devel` | `capnproto capnproto-devel` | `zeromq-devel pkgconf` | `systemtap-sdt-devel` | `qt6-qtbase-devel qt6-qttools-devel qt6-qtwayland qrencode-devel` |
+| Alpine (`apk`)          | `build-base cmake linux-headers python3 boost-dev` | `sqlite-dev` | `capnproto capnproto-dev` | `zeromq-dev` | Not supported | `qt6-qtbase-dev qt6-qttools-dev libqrencode-dev` |
+| Arch (`pacman`)         | `gcc make cmake python boost` | `sqlite` | `capnproto` | `zeromq` | `systemtap` | `qt6-base qt6-tools qt6-wayland qrencode` |
 
-    the output should contain:
-	STK/REL/PTL
-	RW- R-- RW-
+<a id="note1"></a>1. Some ZMQ packages do not vendor the CMake config files, which requires `pkgconf` or `pkg-config` to be installed.
 
-    The STK RW- means that the stack is readable and writeable but not executable.
+For Debian "oldstable", or earlier Ubuntu LTS releases, you may need to pick a
+later compiler version, according to the [dependencies](/doc/dependencies.md)
+documentation.
 
-Disable-wallet mode
---------------------
-When the intention is to run only a P2P node without a wallet, bitcoin may be compiled in
-disable-wallet mode with:
+To build Bitcoin Core without the wallet, see [*Disable-wallet mode*](#disable-wallet-mode)
+and use `-DENABLE_WALLET=OFF` to build without the wallet and skip the SQLite dependency.
 
-    ./configure --disable-wallet
+Cap'n Proto is needed for IPC functionality (see [multiprocess.md](multiprocess.md)).
+Compile with `-DENABLE_IPC=OFF` if you do not need IPC functionality.
 
-In this case there is no dependency on Berkeley DB 4.8.
+ZMQ-enabled binaries are compiled with `-DWITH_ZMQ=ON` and require libzmq.
 
-Mining is also possible in disable-wallet mode, but only using the `getblocktemplate` RPC
-call not `getwork`.
+User-Space, Statically Defined Tracing (USDT) requires the systemtap-sdt
+development package and must be enabled via `-DWITH_USDT=ON`.
 
+GUI dependencies:
+
+Bitcoin Core includes a GUI built with the cross-platform Qt Framework. To compile the GUI, we need to install
+the necessary parts of Qt, the libqrencode and pass `-DBUILD_GUI=ON`. Skip if you don't intend to use the GUI.
+
+Additionally, install the Qt Wayland platform plugin for modern desktop environments.
+
+The GUI will be able to encode addresses in QR codes and requires libqrencode.
+Otherwise, if you don't need QR encoding support, use the `-DWITH_QRENCODE=OFF` option to disable this feature in order to compile the GUI.
+
+### Disable-wallet mode
+
+When the intention is to only run a P2P node, without a wallet, Bitcoin Core can
+be compiled in disable-wallet mode with:
+
+    cmake -B build -DENABLE_WALLET=OFF
+
+In this case there is no dependency on SQLite.
+
+Mining is also possible in disable-wallet mode using the `getblocktemplate` RPC call.

@@ -1,16 +1,26 @@
 package=freetype
-$(package)_version=2.5.3
-$(package)_download_path=http://downloads.sourceforge.net/$(package)
-$(package)_file_name=$(package)-$($(package)_version).tar.bz2
-$(package)_sha256_hash=c0848b29d52ef3ca27ad92e08351f023c5e24ce8cea7d8fe69fc96358e65f75e
+$(package)_version=2.11.1
+$(package)_download_path=https://download.savannah.gnu.org/releases/$(package)
+$(package)_file_name=$(package)-$($(package)_version).tar.gz
+$(package)_sha256_hash=f8db94d307e9c54961b39a1cc799a67d46681480696ed72ecf78d4473770f09b
+$(package)_build_subdir=build
+$(package)_patches += cmake_minimum.patch
+$(package)_patches += openbsd_versioning.patch
 
 define $(package)_set_vars
-  $(package)_config_opts=--without-zlib --without-png --disable-static
-  $(package)_config_opts_linux=--with-pic
+  $(package)_config_opts := -DCMAKE_BUILD_TYPE=None -DBUILD_SHARED_LIBS=TRUE
+  $(package)_config_opts += -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=TRUE -DCMAKE_DISABLE_FIND_PACKAGE_PNG=TRUE
+  $(package)_config_opts += -DCMAKE_DISABLE_FIND_PACKAGE_HarfBuzz=TRUE -DCMAKE_DISABLE_FIND_PACKAGE_BZip2=TRUE
+  $(package)_config_opts += -DCMAKE_DISABLE_FIND_PACKAGE_BrotliDec=TRUE
+endef
+
+define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/cmake_minimum.patch && \
+  patch -p1 < $($(package)_patch_dir)/openbsd_versioning.patch
 endef
 
 define $(package)_config_cmds
-  $($(package)_autoconf)
+  $($(package)_cmake) -S .. -B .
 endef
 
 define $(package)_build_cmds
@@ -20,3 +30,4 @@ endef
 define $(package)_stage_cmds
   $(MAKE) DESTDIR=$($(package)_staging_dir) install
 endef
+
